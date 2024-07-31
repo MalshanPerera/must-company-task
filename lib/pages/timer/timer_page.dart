@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:screenshot/screenshot.dart';
 
+import '../../services/camera_service.dart';
 import '../../utils/utils.dart';
 import '../../widgets/timer_text.dart';
-import 'bloc/timer_bloc.dart';
+import 'cubit/camera_cubit.dart';
+import 'time_bloc/timer_bloc.dart';
 
 class TimerPage extends StatefulWidget {
   const TimerPage({super.key});
@@ -14,6 +16,7 @@ class TimerPage extends StatefulWidget {
 }
 
 class _TimerPageState extends State<TimerPage> {
+  final camera = CameraService();
   late ScreenshotController _screenshotController;
 
   @override
@@ -35,16 +38,36 @@ class _TimerPageState extends State<TimerPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            BlocConsumer<CameraCubit, CameraState>(
+              listener: (context, state) {
+                if (state is CameraImageCaptured) {
+                  _takeScreenshot();
+                }
+                if (state is CameraDenied) {
+                  _showToast("Camera permission denied");
+                }
+                if (state is CameraUnknown) {
+                  _showToast("Error checking camera permission");
+                }
+              },
+              builder: (context, state) {
+                return state.imagePath != ""
+                    ? Image.asset(
+                        state.imagePath,
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,
+                      )
+                    : const SizedBox.shrink();
+              },
+            ),
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 100.0),
+              padding: const EdgeInsets.symmetric(vertical: 50.0),
               child: Center(
                 child: BlocConsumer<TimerBloc, TimerState>(
                   listener: (context, state) async {
                     if (state.duration == 0) {
-                      final isSuccess = await captureAndSavePng(
-                        controller: _screenshotController,
-                      );
-                      _showToast(isSuccess);
+                      await context.read<CameraCubit>().captureImage();
                     }
                   },
                   builder: (context, state) {
@@ -65,20 +88,24 @@ class _TimerPageState extends State<TimerPage> {
     );
   }
 
-  void _showToast([bool isSuccess = true]) {
+  void _takeScreenshot() async {
+    final isSuccess = await captureAndSavePng(
+      controller: _screenshotController,
+    );
+
     if (isSuccess) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Screenshot saved to Downloads'),
-        ),
-      );
+      _showToast("Screenshot saved to Downloads");
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error capturing and saving screenshot'),
-        ),
-      );
+      _showToast("Screenshot saved to Downloads");
     }
+  }
+
+  void _showToast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
   }
 }
 
@@ -110,8 +137,10 @@ class ButtonActions extends StatelessWidget {
                   ),
                   FloatingActionButton(
                     child: const Icon(Icons.replay),
-                    onPressed: () =>
-                        context.read<TimerBloc>().add(const TimerReset()),
+                    onPressed: () {
+                      context.read<CameraCubit>().resetImage();
+                      context.read<TimerBloc>().add(const TimerReset());
+                    },
                   ),
                 ],
               TimerRunPause() => [
@@ -122,15 +151,19 @@ class ButtonActions extends StatelessWidget {
                   ),
                   FloatingActionButton(
                     child: const Icon(Icons.replay),
-                    onPressed: () =>
-                        context.read<TimerBloc>().add(const TimerReset()),
+                    onPressed: () {
+                      context.read<CameraCubit>().resetImage();
+                      context.read<TimerBloc>().add(const TimerReset());
+                    },
                   ),
                 ],
               TimerRunComplete() => [
                   FloatingActionButton(
                     child: const Icon(Icons.replay),
-                    onPressed: () =>
-                        context.read<TimerBloc>().add(const TimerReset()),
+                    onPressed: () {
+                      context.read<CameraCubit>().resetImage();
+                      context.read<TimerBloc>().add(const TimerReset());
+                    },
                   ),
                 ]
             }
