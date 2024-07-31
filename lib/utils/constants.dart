@@ -1,7 +1,7 @@
 const String kAppName = 'Must Company Task';
 
 // TIMER
-const int kTimerDuration = 60;
+const int kTimerDuration = 5;
 
 // ROUTES
 const String kInitialRoute = '/';
